@@ -153,24 +153,23 @@ void CCallbackTimer::InsertNodeIntoPendingList(
 
    // insert in list in time order ascending
 
-   Node *pNode= m_pendingList.Head();
+   Node *pPrev = 0;
 
-   while (pNode && pNode->m_millisecondTimeout < pNewNode->m_millisecondTimeout && m_pendingList.Next(pNode))
+   Node *pNode = m_pendingList.Head();
+
+   while (pNode && pNode->m_millisecondTimeout < pNewNode->m_millisecondTimeout)
    {
+      pPrev = pNode;
+
       pNode = m_pendingList.Next(pNode);
    }
 
-   if (pNode)
+   if (pPrev)
    {
-		// Output(_T("Insert: ") + ToString(pNewNode) + _T(" time:") + ToString(pNewNode->m_millisecondTimeout));
-		// Output(_T("After: ") + ToString(pNode) + _T(" time:") + ToString(pNode->m_millisecondTimeout));
-
-      m_pendingList.InsertAfter(pNode, pNewNode);         
+      m_pendingList.InsertAfter(pPrev, pNewNode);         
    }
    else
    {
-		// Output(_T("Push: ") + ToString(pNewNode) + _T(" time:") + ToString(pNewNode->m_millisecondTimeout));
-
       m_pendingList.PushNode(pNewNode);
    }
 }
