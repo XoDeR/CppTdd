@@ -14,6 +14,8 @@ namespace AmstelTech
 	
 namespace Win32 
 {
+	
+class IProvideTickCount;
 
 class CCallbackTimer : protected CThread 
 {
@@ -24,13 +26,10 @@ class CCallbackTimer : protected CThread
       friend class Handle;
 
       CCallbackTimer();
-
+	  explicit CCallbackTimer(const IProvideTickCount &tickProvider);
       ~CCallbackTimer();
 
-      void SetTimer(
-         const Handle &hnd,
-         DWORD millisecondTimeout,
-         DWORD userData = 0);
+      void SetTimer(const Handle& hnd, DWORD millisecondTimeout, DWORD userData = 0);
 
       bool CancelTimer(
          const Handle &hnd);
@@ -50,17 +49,15 @@ class CCallbackTimer : protected CThread
       friend class Node;
 
       void InsertNodeIntoPendingList(
-         Node *pNode,
+         Node* pNode,
          DWORD millisecondTimeout,
          DWORD userData);
 
       DWORD HandleTimeouts() const;
 
-      void HandleTimeout(
-         Node *pNode) const;
+      void HandleTimeout(Node* pNode) const;
 
-      bool CancelTimer(
-         Node *pNode);
+      bool CancelTimer(Node* pNode);
 
       TNodeList<Node> m_pendingList;
 
@@ -68,6 +65,7 @@ class CCallbackTimer : protected CThread
       CAutoResetEvent m_stateChangeEvent;
 
       volatile bool m_shutdown;
+	  const IProvideTickCount& m_tickProvider;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

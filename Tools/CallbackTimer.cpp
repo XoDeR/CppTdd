@@ -1,13 +1,19 @@
 #include "CallbackTimer.h"
 #include "Utils.h"
 #include "Exception.h"
+#include "TickCountProvider.h"
 
 namespace AmstelTech 
 {
 	
 namespace Win32 
 {
+	
+static const CTickCountProvider s_tickProvider;
 
+///////////////////////////////////////////////////////////////////////////////
+// CCallbackTimer::Node
+///////////////////////////////////////////////////////////////////////////////
 class CCallbackTimer::Node : public CNodeList::Node
 {
    public :
@@ -41,8 +47,17 @@ class CCallbackTimer::Node : public CNodeList::Node
 // CCallbackTimer
 ///////////////////////////////////////////////////////////////////////////////
 
+CCallbackTimer::CCallbackTimer(
+   const IProvideTickCount &tickProvider)
+   :  m_shutdown(false),
+      m_tickProvider(tickProvider)
+{
+   Start();
+}
+
 CCallbackTimer::CCallbackTimer()
    :  m_shutdown(false)
+   , m_tickProvider(s_tickProvider)
 {
    Start();
 }
@@ -98,13 +113,10 @@ DWORD CCallbackTimer::HandleTimeouts() const
    return INFINITE;
 }
 
-void CCallbackTimer::HandleTimeout(
-   Node *pNode) const
+void CCallbackTimer::HandleTimeout(Node* pNode) const
 {
    pNode->RemoveFromList();
-
    pNode->OnTimer();
-
    pNode->Release();
 }
 
@@ -134,7 +146,8 @@ void CCallbackTimer::InsertNodeIntoPendingList(
 
    pNewNode->RemoveFromList();
 
-   pNewNode->SetTimeout(millisecondTimeout, userData);
+   const DWORD absoluteTimeout = m_tickProvider.GetTickCount() + millisecondTimeout;
+   pNewNode->SetTimeout(absoluteTimeout, userData);
 
    pNewNode->AddRef();
 
@@ -248,7 +261,7 @@ CCallbackTimer::Handle::~Handle()
 {
    m_pNode = SafeRelease(m_pNode);
 
-   // m_pNode not directly freed of zeroed in dtor
+   // warning: m_pNode not directly freed of zeroed in dtor
 }
 
 CCallbackTimer::Handle::Data *CCallbackTimer::Handle::Detatch()
@@ -288,7 +301,7 @@ bool CCallbackTimer::Handle::operator !=(
 bool CCallbackTimer::Handle::operator <(
    const Handle &rhs) const
 {
-   // Possible use of null pointer m_pNode
+   // warning: Possible use of null pointer m_pNode
 
    return m_pNode < rhs.m_pNode;
 }
@@ -314,7 +327,7 @@ CCallbackTimer::Node *CCallbackTimer::Handle::SafeRelease(
 
    return 0;
 
-   // Custodial pointer 'pNode' has not been freed or returned
+   // warning: Custodial pointer 'pNode' has not been freed or returned
 }
 
 ///////////////////////////////////////////////////////////////////////////////
