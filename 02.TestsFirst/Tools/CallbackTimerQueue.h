@@ -29,8 +29,15 @@ class CCallbackTimerQueue
 	  typedef ULONG_PTR Handle;
 
       CCallbackTimerQueue();
+	  
+	  explicit CCallbackTimerQueue(
+         const DWORD maxTimeout);
 
       explicit CCallbackTimerQueue(
+         const IProvideTickCount &tickProvider);
+		 
+	CCallbackTimerQueue(
+         const DWORD maxTimeout,
          const IProvideTickCount &tickProvider);
 
       Handle SetTimer(
