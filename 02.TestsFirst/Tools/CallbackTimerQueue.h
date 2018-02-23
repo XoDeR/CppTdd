@@ -6,6 +6,9 @@
 #undef WIN32_LEAN_AND_MEAN
 #endif
 
+#include <list>
+#include <map>
+
 namespace AmstelTech 
 {
 	
@@ -27,6 +30,8 @@ class CCallbackTimerQueue
       class Timer;
 	  
 	  typedef ULONG_PTR Handle;
+	  
+	  struct TimerData;
 
       CCallbackTimerQueue();
 	  
@@ -36,9 +41,11 @@ class CCallbackTimerQueue
       explicit CCallbackTimerQueue(
          const IProvideTickCount &tickProvider);
 		 
-	CCallbackTimerQueue(
-         const DWORD maxTimeout,
-         const IProvideTickCount &tickProvider);
+		CCallbackTimerQueue(
+			const DWORD maxTimeout,
+			const IProvideTickCount &tickProvider);
+		 
+		~CCallbackTimerQueue();
 
       Handle SetTimer(
          Timer &timer,
@@ -54,11 +61,19 @@ class CCallbackTimerQueue
 
    private :
 
+      typedef std::list<TimerData *> TimerQueue;
+
+      typedef std::map<Handle, TimerQueue::iterator> HandleMap;
+
+      TimerQueue m_queue;
+
+      HandleMap m_handleMap;
+
+      TimerQueue::iterator m_wrapPoint;
+
       const IProvideTickCount &m_tickProvider;
 
-      Timer *m_pTimer;
-      DWORD m_nextTimeout;
-      UserData m_userData;
+      const DWORD m_maxTimeout;
 
       // No copies do not implement
       CCallbackTimerQueue(const CCallbackTimerQueue &rhs);
