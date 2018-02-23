@@ -25,16 +25,21 @@ class CCallbackTimerQueue
       typedef ULONG_PTR UserData;
 
       class Timer;
+	  
+	  typedef ULONG_PTR Handle;
 
       CCallbackTimerQueue();
 
       explicit CCallbackTimerQueue(
          const IProvideTickCount &tickProvider);
 
-      void SetTimer(
+      Handle SetTimer(
          Timer &timer,
          const DWORD timeoutMillis,
          const UserData userData);
+		 
+		bool CancelTimer(
+         Handle handle);
 
       DWORD GetNextTimeout() const;
 
