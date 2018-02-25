@@ -17,6 +17,8 @@ class CCallbackTimerQueue::TimerData
 {
 	public :
 	
+	TimerData();
+	
    TimerData(
       Timer &timer,
       DWORD timeout,
@@ -34,6 +36,8 @@ class CCallbackTimerQueue::TimerData
 
       DWORD TimeUntilTimeout(
          const DWORD now) const;
+		 
+		bool IsOneShotTimer() const;
 
    private :
    
@@ -42,6 +46,8 @@ class CCallbackTimerQueue::TimerData
       DWORD m_timeout;
    
       UserData m_userData;
+	  
+	  const bool m_oneShotTimer;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,6 +59,12 @@ static const CTickCountProvider s_tickProvider;
 static const DWORD s_tickCountMax = 0xFFFFFFFF;
 
 static const DWORD s_timeoutMax = s_tickCountMax / 4 * 3;
+
+///////////////////////////////////////////////////////////////////////////////
+// Static members
+///////////////////////////////////////////////////////////////////////////////
+
+CCallbackTimerQueue::Handle CCallbackTimerQueue::InvalidHandleValue = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // CCallbackTimerQueue
@@ -92,47 +104,97 @@ CCallbackTimerQueue::CCallbackTimerQueue(
 
 CCallbackTimerQueue::~CCallbackTimerQueue()
 {
-   for (TimerQueue::iterator it = m_queue.begin(); it != m_queue.end(); ++it)
+   for (HandleMap::iterator it = m_handleMap.begin(); it != m_handleMap.end(); ++it)
    {
-      if (it != m_wrapPoint)
-      {
-         delete *it;
-      }
+      TimerData *pData = reinterpret_cast<TimerData*>(it->first);
+
+      delete pData;
    }
 }
 
-CCallbackTimerQueue::Handle CCallbackTimerQueue::SetTimer(
+CCallbackTimerQueue::Handle CCallbackTimerQueue::CreateTimer()
+{
+   TimerData *pData = new TimerData();
+
+   Handle handle = reinterpret_cast<Handle>(pData);
+
+   m_handleMap[handle] = m_queue.end();
+
+   return handle;
+}
+
+bool CCallbackTimerQueue::SetTimer(
+   const Handle &handle, 
    Timer &timer,
    const DWORD timeoutMillis,
    const UserData userData)
 {
    bool wrapped = false;
 
-   TimerData *pData = CreateTimer(timer, timeoutMillis, userData, wrapped);
+   const DWORD timeout = GetAbsoluteTimeout(timeoutMillis, wrapped);
 
-   return InsertTimer(pData, wrapped);
+   HandleMap::iterator it = ValidateHandle(handle);
+
+   const bool wasPending = CancelTimer(handle, it);
+
+   TimerData *pData = reinterpret_cast<TimerData*>(it->first);
+
+   pData->UpdateData(timer, timeout, userData);
+
+   InsertTimer(handle, pData, wrapped);
+
+   return wasPending;
 }
 
-CCallbackTimerQueue::TimerData *CCallbackTimerQueue::CreateTimer(
+bool CCallbackTimerQueue::CancelTimer(
+   const Handle &handle)
+{
+   return CancelTimer(handle, ValidateHandle(handle));
+}
+
+bool CCallbackTimerQueue::DestroyTimer(
+   Handle &handle)
+{
+   HandleMap::iterator it = ValidateHandle(handle);
+
+   TimerData *pData = reinterpret_cast<TimerData*>(it->first);
+
+   const bool wasPending = CancelTimer(handle, it);
+
+   m_handleMap.erase(it);
+
+   delete pData;
+
+   handle = InvalidHandleValue;
+
+   return wasPending;
+}
+
+void CCallbackTimerQueue::SetTimer(
    Timer &timer,
    const DWORD timeoutMillis,
-   const UserData userData,
-   bool &wrapped) const
+   const UserData userData)
 {
-   if (timeoutMillis > m_maxTimeout)
-   {
-      throw CException(_T("CCallbackTimerQueue::CreateTimer()"), _T("Timeout value is too large, max = ") + ToString(m_maxTimeout));
-   }
+   bool wrapped = false;
 
    const DWORD timeout = GetAbsoluteTimeout(timeoutMillis, wrapped);
 
-   return new TimerData(timer, timeout, userData);
+   TimerData *pData = new TimerData(timer, timeout, userData);
+
+   Handle handle = reinterpret_cast<Handle>(pData);
+
+   InsertTimer(handle, pData, wrapped);
 }
 
 DWORD CCallbackTimerQueue::GetAbsoluteTimeout(
    const DWORD timeoutMillis,
    bool &wrapped) const
 {
+   if (timeoutMillis > m_maxTimeout)
+   {
+      throw CException(_T("CCallbackTimerQueue::GetAbsoluteTimeout()"), _T("Timeout value is too large, max = ") + ToString(m_maxTimeout));
+   }
+
    const DWORD now = m_tickProvider.GetTickCount();
 
    const DWORD timeout = now + timeoutMillis;
@@ -142,8 +204,9 @@ DWORD CCallbackTimerQueue::GetAbsoluteTimeout(
    return timeout;
 }
 
-CCallbackTimerQueue::Handle CCallbackTimerQueue::InsertTimer(
-   TimerData *pData,
+void CCallbackTimerQueue::InsertTimer(
+   const Handle &handle,
+   TimerData * const pData,
    const bool wrapped)
 {
    if (wrapped && m_wrapPoint == m_queue.end())
@@ -163,80 +226,38 @@ CCallbackTimerQueue::Handle CCallbackTimerQueue::InsertTimer(
 
    it = m_queue.insert(it, pData);
 
-   Handle handle = reinterpret_cast<Handle>(pData);
-
    m_handleMap[handle] = it;
-
-   return handle;
 }
 
-bool CCallbackTimerQueue::ResetTimer(
-   Handle &handle, 
-   Timer &timer,
-   const DWORD timeoutMillis,
-   const UserData userData)
+CCallbackTimerQueue::HandleMap::iterator CCallbackTimerQueue::ValidateHandle(
+   const Handle &handle)
 {
-   bool wasPending = false;
+   HandleMap::iterator it = m_handleMap.find(handle);
 
-   TimerData *pData = 0;
+   if (it == m_handleMap.end())
+   {
+      throw CException(_T("CCallbackTimerQueue::ValidateHandle()"), _T("Invalid timer handle: ") + ToString(handle));
+   }
    
-   if (handle != InvalidHandleValue)
-   {
-      pData = RemoveTimer(handle);
-   }
-
-   bool wrapped = false;
-
-   if (pData)
-   {
-      const DWORD timeout = GetAbsoluteTimeout(timeoutMillis, wrapped);
-   
-      pData->UpdateData(timer, timeout, userData);
-
-      wasPending = true;
-   }
-   else
-   {
-      pData = CreateTimer(timer, timeoutMillis, userData, wrapped);
-   }
-
-   handle = InsertTimer(pData, wrapped);
-
-   return wasPending;
+   return it;
 }
 
 bool CCallbackTimerQueue::CancelTimer(
-   Handle &handle)
+   const Handle &handle,
+   const HandleMap::iterator &it)
 {
-   TimerData *pData = RemoveTimer(handle);
-      
-   handle = InvalidHandleValue;
-
-   bool wasPending = pData != 0;
-
-   delete pData;
-
-   return wasPending;
-}
-
-CCallbackTimerQueue::TimerData *CCallbackTimerQueue::RemoveTimer(
-   Handle handle)
-{
-   TimerData *pData = 0;
-
-   HandleMap::iterator mapIt = m_handleMap.find(handle);
-
-   if (mapIt != m_handleMap.end())
+   bool wasPending = false;
+   
+   if (it->second != m_queue.end())
    {
-      TimerQueue::iterator it = mapIt->second;
+      m_queue.erase(it->second);
 
-      pData = *it;
+      m_handleMap[handle] = m_queue.end();
 
-      m_queue.erase(it);
-      m_handleMap.erase(mapIt);
+      wasPending = true;
    }
 
-   return pData;
+   return wasPending;
 }
 
 DWORD CCallbackTimerQueue::GetNextTimeout() const
@@ -287,11 +308,17 @@ void CCallbackTimerQueue::HandleTimeouts()
          TimerData *pData = *it;
 
          m_queue.erase(it);
-         m_handleMap.erase(reinterpret_cast<Handle>(pData));
+
+         Handle handle = reinterpret_cast<Handle>(pData);
+
+         m_handleMap[handle] = m_queue.end();
 
          pData->OnTimer();
 
-         delete pData;
+         if (pData->IsOneShotTimer())
+         {
+            DestroyTimer(handle);
+         }
       }
    }
 }
@@ -300,13 +327,22 @@ void CCallbackTimerQueue::HandleTimeouts()
 // CCallbackTimerQueue::TimerData
 ///////////////////////////////////////////////////////////////////////////////
 
+CCallbackTimerQueue::TimerData::TimerData()
+   :  m_pTimer(0), 
+      m_timeout(0),
+      m_userData(0),
+      m_oneShotTimer(false)
+{
+}
+
 CCallbackTimerQueue::TimerData::TimerData(
    Timer &timer,
    DWORD timeout,
    UserData userData)
    :  m_pTimer(&timer), 
       m_timeout(timeout),
-      m_userData(userData)
+      m_userData(userData),
+      m_oneShotTimer(true)
 {
 }
 
@@ -315,6 +351,11 @@ void CCallbackTimerQueue::TimerData::UpdateData(
    DWORD timeout,
    UserData userData)
 {
+	if (m_oneShotTimer)
+   {
+      throw CException(_T("CCallbackTimerQueue::UpdateData()"), _T("Internal Error: Can't update one shot timers"));
+   }
+	
    m_pTimer = &timer; 
    m_timeout = timeout;
    m_userData = userData;
@@ -322,6 +363,10 @@ void CCallbackTimerQueue::TimerData::UpdateData(
 
 void CCallbackTimerQueue::TimerData::OnTimer()
 {
+	if (!m_pTimer)
+   {
+      throw CException(_T("CCallbackTimerQueue::OnTimer()"), _T("Internal Error: Timer not set"));
+   }
    m_pTimer->OnTimer(m_userData);
 }
 
@@ -335,6 +380,11 @@ DWORD CCallbackTimerQueue::TimerData::TimeUntilTimeout(
    const DWORD now) const
 {
    return m_timeout - now;
+}
+
+bool CCallbackTimerQueue::TimerData::IsOneShotTimer() const
+{
+   return m_oneShotTimer;
 }
 
 } // End of namespace Win32

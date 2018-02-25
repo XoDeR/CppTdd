@@ -39,19 +39,24 @@ class CCallbackTimerQueue : public IQueueTimers
 
       // Implement IQueueTimers
 
-      virtual Handle SetTimer(
-         Timer &timer,
-         const DWORD timeoutMillis,
-         const UserData userData);
+      virtual Handle CreateTimer();
 
-      virtual bool ResetTimer(
-         Handle &handle, 
+      virtual bool SetTimer(
+         const Handle &handle, 
          Timer &timer,
          const DWORD timeoutMillis,
          const UserData userData);
 
       virtual bool CancelTimer(
+         const Handle &handle);
+
+      virtual bool DestroyTimer(
          Handle &handle);
+
+      virtual void SetTimer(
+         Timer &timer,
+         const DWORD timeoutMillis,
+         const UserData userData);
 
    private :
    

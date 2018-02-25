@@ -60,6 +60,9 @@ class CCriticalSection
       };
 
       CCriticalSection();
+	  
+	  explicit CCriticalSection(       // only actually does anything if > NT 4 Sp3
+         const size_t spinCount); 
       
       ~CCriticalSection();
 

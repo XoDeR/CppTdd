@@ -126,6 +126,10 @@ _tstring GetCurrentDirectory();
 
 _tstring GetDateStamp();
 
+_tstring GetTimeStamp();
+
+std::string GetTimeStampA();
+
 void SetLogFileName(
    const _tstring &name);
 
@@ -144,6 +148,9 @@ void OutputEx(
 _tstring ToHex(BYTE c);
 
 std::string ToHexA(BYTE c);
+
+std::string ToUpper(
+   const std::string &data);
 
 _tstring MakePrintable(
    const BYTE * const pData, 
@@ -188,7 +195,13 @@ _tstring StripLeading(
 _tstring StripTrailing(
    const _tstring &source, 
    const char toStrip);
+   
+std::string LoadFileAsStringA(
+   const _tstring &filename);
 
+void SaveStringAsFile(
+   const _tstring &filename,
+   const std::string &data);
 
 } // End of namespace Win32
 } // End of namespace AmstelTech 

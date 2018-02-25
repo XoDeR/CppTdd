@@ -15,6 +15,19 @@ CCriticalSection::CCriticalSection()
 {
    ::InitializeCriticalSection(&m_crit);
 }
+
+CCriticalSection::CCriticalSection(
+   const size_t spinCount)
+{
+#if(_WIN32_WINNT >= 0x0403)
+   ::InitializeCriticalSectionAndSpinCount(&m_crit, spinCount);
+#else
+   spinCount;
+   ::InitializeCriticalSection(&m_crit);
+   
+   OutputEx(_T("CCriticalSection::CCriticalSection() - spin count specified but _WIN32_WINNT < 0x0403, spin count not used"));
+#endif
+}
       
 CCriticalSection::~CCriticalSection()
 {
