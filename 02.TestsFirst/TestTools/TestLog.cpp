@@ -61,6 +61,12 @@ _tstring CTestLog::RemoveMessages()
    return result;
 }
 
+void CTestLog::CheckNoResults(
+   bool displayOnFailure)
+{
+   CheckResult(_T("|"), displayOnFailure);
+}
+
 void CTestLog::CheckResult(
    const _tstring &expectedResult, 
    bool displayOnFailure)

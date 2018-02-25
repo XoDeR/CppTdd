@@ -1,5 +1,6 @@
 #pragma once
 
+// MSVC only
 #pragma warning(disable : 4786)
 
 #include "../Tools/tstring.h"
@@ -24,6 +25,8 @@ class CTestLog
       void LogMessage(const AmstelTech::Win32::_tstring &message) const;
       AmstelTech::Win32::_tstring GetMessages() const;
       AmstelTech::Win32::_tstring RemoveMessages();
+	  void CheckNoResults(
+         bool displayOnFailure = true);
       void CheckResult(const AmstelTech::Win32::_tstring &expectedResult, bool displayOnFailure = true);
       void CheckResultA(const std::string &expectedResult, bool displayOnFailure = true);
    private :
