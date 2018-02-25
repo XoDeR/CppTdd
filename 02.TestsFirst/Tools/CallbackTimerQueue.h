@@ -1,10 +1,6 @@
 #pragma once
 
-#ifndef _WINDOWS_
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#endif
+#include "IQueueTimers.h"
 
 #include <list>
 #include <map>
@@ -21,17 +17,9 @@ class IProvideTickCount;
 // CCallbackTimerQueue
 ///////////////////////////////////////////////////////////////////////////////
 
-class CCallbackTimerQueue
+class CCallbackTimerQueue : public IQueueTimers
 {
    public :
-
-      typedef ULONG_PTR UserData;
-
-      class Timer;
-	  
-	  typedef ULONG_PTR Handle;
-	  
-	  struct TimerData;
 
       CCallbackTimerQueue();
 	  
@@ -47,19 +35,44 @@ class CCallbackTimerQueue
 		 
 		~CCallbackTimerQueue();
 
-      Handle SetTimer(
+      void HandleTimeouts();
+
+      // Implement IQueueTimers
+
+      virtual Handle SetTimer(
          Timer &timer,
          const DWORD timeoutMillis,
          const UserData userData);
-		 
-		bool CancelTimer(
-         Handle handle);
 
-      DWORD GetNextTimeout() const;
+      virtual bool ResetTimer(
+         Handle &handle, 
+         Timer &timer,
+         const DWORD timeoutMillis,
+         const UserData userData);
 
-      void HandleTimeouts();
+      virtual bool CancelTimer(
+         Handle &handle);
 
    private :
+   
+		class TimerData;
+
+      TimerData *CreateTimer(
+         Timer &timer,
+         const DWORD timeoutMillis,
+         const UserData userData,
+         bool &wrapped) const;
+
+      DWORD GetAbsoluteTimeout(
+         const DWORD timeoutMillis,
+         bool &wrapped) const;
+
+      Handle InsertTimer(
+         TimerData *pData,
+         const bool wrapped);
+
+      TimerData *RemoveTimer(
+         Handle handle);
 
       typedef std::list<TimerData *> TimerQueue;
 
@@ -78,22 +91,6 @@ class CCallbackTimerQueue
       // No copies do not implement
       CCallbackTimerQueue(const CCallbackTimerQueue &rhs);
       CCallbackTimerQueue &operator=(const CCallbackTimerQueue &rhs);
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// CCallbackTimerQueue::Timer
-///////////////////////////////////////////////////////////////////////////////
-
-class CCallbackTimerQueue::Timer
-{
-   public :
-
-      virtual void OnTimer(
-         UserData userData) = 0;
-
-   protected :
-
-      ~Timer();
 };
 
 } // End of namespace Win32

@@ -16,8 +16,8 @@ namespace Win32
 ///////////////////////////////////////////////////////////////////////////////
 
 class CThreadedCallbackTimerQueue : 
-   private CThread, 
-   private CCallbackTimerQueue
+   public IQueueTimers,
+   private CThread
 {
    public :
 
@@ -35,13 +35,21 @@ class CThreadedCallbackTimerQueue :
 
       ~CThreadedCallbackTimerQueue();
 
-      Handle SetTimer(
+      // Implement IQueueTimers
+
+      virtual Handle SetTimer(
          Timer &timer,
          const DWORD timeoutMillis,
          const UserData userData);
 
-      bool CancelTimer(
-         Handle handle);
+      virtual bool ResetTimer(
+         Handle &handle, 
+         Timer &timer,
+         const DWORD timeoutMillis,
+         const UserData userData);
+
+      virtual bool CancelTimer(
+         Handle &handle);
 
    private :
 
@@ -60,6 +68,8 @@ class CThreadedCallbackTimerQueue :
       CAutoResetEvent m_stateChangeEvent;
 
       volatile bool m_shutdown;
+	  
+	  CCallbackTimerQueue m_timerQueue;
 
       // No copies do not implement
       CThreadedCallbackTimerQueue(const CThreadedCallbackTimerQueue &rhs);
