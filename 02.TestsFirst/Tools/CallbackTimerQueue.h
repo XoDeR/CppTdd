@@ -2,7 +2,6 @@
 
 #include "IQueueTimers.h"
 
-#include <list>
 #include <map>
 
 namespace AmstelTech 
@@ -61,33 +60,40 @@ class CCallbackTimerQueue : public IQueueTimers
    private :
    
 		class TimerData;
+		
+		typedef std::multimap<DWORD, TimerData *> TimerQueue;
 
-      TimerData *CreateTimer(
-         Timer &timer,
-         const DWORD timeoutMillis,
-         const UserData userData,
-         bool &wrapped) const;
+      typedef std::pair<TimerQueue *, TimerQueue::iterator> HandleMapValue;
+
+      typedef std::map<Handle, HandleMapValue> HandleMap;
+
+      HandleMap::iterator ValidateHandle(
+         const Handle &handle);
+
+      bool CancelTimer(
+         const Handle &handle,
+         const HandleMap::iterator &it);
 
       DWORD GetAbsoluteTimeout(
          const DWORD timeoutMillis,
          bool &wrapped) const;
 
-      Handle InsertTimer(
-         TimerData *pData,
+      void InsertTimer(
+         const Handle &handle,
+         TimerData * const pData,
+         const DWORD timeoutMillis,
          const bool wrapped);
 
-      TimerData *RemoveTimer(
+      void MarkHandleUnset(
          Handle handle);
 
-      typedef std::list<TimerData *> TimerQueue;
+      TimerQueue m_queue1;
+      TimerQueue m_queue2;
 
-      typedef std::map<Handle, TimerQueue::iterator> HandleMap;
-
-      TimerQueue m_queue;
+      TimerQueue *m_pCurrentQueue;
+      TimerQueue *m_pWrappedQueue;
 
       HandleMap m_handleMap;
-
-      TimerQueue::iterator m_wrapPoint;
 
       const IProvideTickCount &m_tickProvider;
 
