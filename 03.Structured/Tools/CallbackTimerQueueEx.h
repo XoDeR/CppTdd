@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IQueueTimers.h"
-#include "CriticalSection.h"
 
 #include <map>
 
@@ -11,33 +10,43 @@ namespace AmstelTech
 namespace Win32 
 {
 
-class IProvideTickCount;
-
 ///////////////////////////////////////////////////////////////////////////////
-// CCallbackTimerQueue
+// Classes defined in other files...
 ///////////////////////////////////////////////////////////////////////////////
 
-/// A class that manages a group of timers that implement IQueueTimers::Timer 
-/// and which have their IQueueTimers::Timer::OnTimer() method called when the 
-/// timer expires. You must manually manage the handling and processing of 
-/// timeouts by calling HandleTimeouts() every GetNextTimeout() milliseconds.
-class CCallbackTimerQueue : public IQueueTimers
+class IProvideTickCount64;
+
+///////////////////////////////////////////////////////////////////////////////
+// CCallbackTimerQueueEx
+///////////////////////////////////////////////////////////////////////////////
+
+class CCallbackTimerQueueEx : public IQueueTimers
 {
    public :
 
-      CCallbackTimerQueue();
-	  
-      explicit CCallbackTimerQueue(
-         const IProvideTickCount &tickProvider);
-		 
-		~CCallbackTimerQueue();
-		
-		Milliseconds GetNextTimeout();
+      /// Create a timer queue.
 
+      CCallbackTimerQueueEx();
+
+      /// Create a timer queue that uses the provdided instance of 
+      /// IProvideTickCount64 to obtain its tick counts rather than getting
+      /// them directly from the system.
+      
+      explicit CCallbackTimerQueueEx(
+         const IProvideTickCount64 &tickProvider);
+
+      ~CCallbackTimerQueueEx();
+
+      /// Get the number of milliseconds until the next timer is due to fire.
+      /// Or INFINITE if no timer is set.
+      
+      Milliseconds GetNextTimeout();
+
+      /// Process any timers that have timed out.
+      
       void HandleTimeouts();
 
       // Implement IQueueTimers
-
       virtual IQueueTimers::Handle CreateTimer();
 
       virtual bool SetTimer(
@@ -63,10 +72,10 @@ class CCallbackTimerQueue : public IQueueTimers
       virtual Milliseconds GetMaximumTimeout() const;
 
    private :
-   
-		class TimerData;
-		
-		typedef std::multimap<ULONGLONG, TimerData *> TimerQueue;
+
+      class TimerData;
+
+      typedef std::multimap<ULONGLONG, TimerData *> TimerQueue;
 
       typedef std::map<Handle, TimerQueue::iterator> HandleMap;
 
@@ -85,38 +94,19 @@ class CCallbackTimerQueue : public IQueueTimers
       void MarkHandleUnset(
          Handle handle);
 
-      void SetMaintenanceTimer();
-
-      ULONGLONG GetTickCount64();
-
       TimerQueue m_queue;
 
       HandleMap m_handleMap;
 
-      const IProvideTickCount &m_tickProvider;
+      const IProvideTickCount64 &m_tickProvider;
 
       const Milliseconds m_maxTimeout;
 
-      LARGE_INTEGER m_lastCount;
-
-      CCriticalSection m_criticalSection;
-
-      Handle m_maintenanceTimer;
-
-      class MaintenanceTimerHandler : public IQueueTimers::Timer
-      {
-         // Implement IQueueTimers::Timer 
-
-         virtual void OnTimer(
-            IQueueTimers::Timer::UserData userData);
-      };
-
-      MaintenanceTimerHandler m_maintenanceTimerHandler;
-
-      // No copies do not implement
-      CCallbackTimerQueue(const CCallbackTimerQueue &rhs);
-      CCallbackTimerQueue &operator=(const CCallbackTimerQueue &rhs);
+		/// No copies do not implement
+      CCallbackTimerQueueEx(const CCallbackTimerQueueEx &rhs);
+		/// No copies do not implement
+      CCallbackTimerQueueEx &operator=(const CCallbackTimerQueueEx &rhs);
 };
 
 } // End of namespace Win32
-} // End of namespace AmstelTech 
+} // End of namespace AmstelTech

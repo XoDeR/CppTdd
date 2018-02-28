@@ -27,13 +27,6 @@ class CThreadedCallbackTimerQueue :
       CThreadedCallbackTimerQueue();
 
       explicit CThreadedCallbackTimerQueue(
-         const Milliseconds maxTimeout);
-
-      explicit CThreadedCallbackTimerQueue(
-         const IProvideTickCount &tickProvider);
-
-      CThreadedCallbackTimerQueue(
-         const Milliseconds maxTimeout,
          const IProvideTickCount &tickProvider);
 
       ~CThreadedCallbackTimerQueue();
